@@ -2,8 +2,8 @@
 //! built on [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) traits.
 //!
 //! Works with any platform that implements
-//! [`SpiDevice`](embedded_hal_async::spi::SpiDevice) and
-//! [`DelayNs`](embedded_hal_async::delay::DelayNs) -- no framework lock-in.
+//! [`SpiDevice`](SpiDevice) and
+//! [`DelayNs`](DelayNs) -- no framework lock-in.
 //!
 //! # Features
 //!
@@ -38,8 +38,8 @@
 //!
 //! # Device Compatibility
 //!
-//! Designed for the CAT25040 but should work with other CAT250xx family EEPROMs
-//! that use the same SPI command set and 9-bit addressing (e.g., CAT25020).
+//! Designed for the CAT25040 but should work with other 'CAT250xx' family EEPROMs
+//! that use the same SPI command set and 9-bit addressing (e.g., 'CAT25020').
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -53,16 +53,25 @@ use embedded_hal_async::spi::Operation;
 use embedded_hal_async::delay::DelayNs;
 
 const WREN_OPCODE: u8 = 0x06;
-const WRDI_OPCODE: u8 = 0x04;
 const RDSR_OPCODE: u8 = 0x05;
-const WRSR_OPCODE: u8 = 0x01;
 const READ_OPCODE: u8 = 0x03;
 const WRITE_OPCODE: u8 = 0x02;
 
-const STATUS_REGISTER_BUSY: u8 = 1 << 0;  
+// Reserved for future WRDI / WRSR command support.
+#[allow(dead_code)]
+const WRDI_OPCODE: u8 = 0x04;
+#[allow(dead_code)]
+const WRSR_OPCODE: u8 = 0x01;
+
+// Reserved for future status register field helpers.
+#[allow(dead_code)]
 const STATUS_REGISTER_WRITE_ENABLE_LATCH: u8 = 1 << 1;
+#[allow(dead_code)]
 const STATUS_REGISTER_BLOCK_PROTECT_0: u8 = 1 << 2;
+#[allow(dead_code)]
 const STATUS_REGISTER_BLOCK_PROTECT_1: u8 = 1 << 3;
+
+const STATUS_REGISTER_BUSY: u8 = 1 << 0;  
 
 const BUSY_WAIT_TIME_MS: u32 = 1;
 const WRITE_CYCLE_TIME_MS: u32 = 5;
@@ -74,7 +83,7 @@ pub struct Cat25040<SPI: SpiDevice, D: DelayNs> {
     delay: D,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cat25040Error {
     Spi,
     InvalidAddress,
@@ -83,7 +92,7 @@ pub enum Cat25040Error {
 
 impl Display for Cat25040Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Cat25040Error: {:?}", self)
+        write!(f, "Cat25040Error: {self:?}")
     }
 }
 
@@ -95,7 +104,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
     pub async fn get_status_register(&mut self, status_buf: &mut [u8]) -> Result<(), Cat25040Error> {
         self.spi.transaction(
             &mut [
-                Operation::Write(&mut [RDSR_OPCODE]),
+                Operation::Write(&[RDSR_OPCODE]),
                 Operation::Read(status_buf)]).await.map_err(|_| Cat25040Error::Spi)?;
         Ok(())
     }
@@ -110,7 +119,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
     pub async fn write_enable(&mut self) -> Result<(), Cat25040Error> {
         self.spi.transaction(
             &mut [
-                Operation::Write(&mut [WREN_OPCODE]),
+                Operation::Write(&[WREN_OPCODE]),
             ]).await.map_err(|_| Cat25040Error::Spi)?;
         Ok(())
     }
@@ -128,7 +137,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         let opcode = Self::get_valid_opcode_for_address(address, READ_OPCODE);
         self.spi.transaction(
             &mut [
-                Operation::Write(&mut [opcode, address as u8]),
+                Operation::Write(&[opcode, address as u8]),
                 Operation::Read(rx_buf)]).await.map_err(|_| Cat25040Error::Spi)?;
         #[cfg(feature = "defmt")]
         debug!("Read 0x{:02x} from address 0x{:02x} with opcode 0x{:02x}", rx_buf[0], address, opcode);
@@ -148,7 +157,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         let opcode = Self::get_valid_opcode_for_address(address, WRITE_OPCODE);
         self.spi.transaction(
             &mut [
-                Operation::Write(&mut [opcode, address as u8, data])]).await.map_err(|_| Cat25040Error::Spi)?;
+                Operation::Write(&[opcode, address as u8, data])]).await.map_err(|_| Cat25040Error::Spi)?;
         self.delay.delay_ms(WRITE_CYCLE_TIME_MS).await;
         while self.is_busy().await? {
             self.delay.delay_ms(BUSY_WAIT_TIME_MS).await;
@@ -176,7 +185,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
 
         self.spi.transaction(
             &mut [
-                Operation::Write(&mut cmd)]).await.map_err(|_| Cat25040Error::Spi)?;
+                Operation::Write(&cmd)]).await.map_err(|_| Cat25040Error::Spi)?;
 
 
         self.delay.delay_ms(WRITE_CYCLE_TIME_MS).await;

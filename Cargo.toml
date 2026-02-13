@@ -8,6 +8,7 @@ license = "Apache-2.0"
 keywords = ["cat25040", "eeprom", "memory", "embedded"]
 categories = ["embedded", "hardware-support", "no-std"]
 readme = "README.md"
+authors = ["Cesar Tamayo <cesardtamayo@gmail.com>"]
 
 [dependencies]
 defmt = { version = "0.3.8", optional = true }
