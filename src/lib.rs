@@ -2,8 +2,8 @@
 //! built on [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) traits.
 //!
 //! Works with any platform that implements
-//! [`SpiDevice`](SpiDevice) and
-//! [`DelayNs`](DelayNs) -- no framework lock-in.
+//! [`SpiDevice`] and
+//! [`DelayNs`] -- no framework lock-in.
 //!
 //! # Features
 //!
@@ -38,8 +38,8 @@
 //!
 //! # Device Compatibility
 //!
-//! Designed for the CAT25040 but should work with other 'CAT250xx' family EEPROMs
-//! that use the same SPI command set and 9-bit addressing (e.g., 'CAT25020').
+//! Designed for the CAT25040 but should work with other `CAT250xx` family EEPROMs
+//! that use the same SPI command set and 9-bit addressing (e.g., `CAT25020`).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -101,6 +101,11 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Self { spi, delay }
     }
 
+    /// Reads the EEPROM status register into `status_buf`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Cat25040Error::Spi`] if the SPI transaction fails.
     pub async fn get_status_register(&mut self, status_buf: &mut [u8]) -> Result<(), Cat25040Error> {
         self.spi.transaction(
             &mut [
@@ -109,6 +114,11 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Ok(())
     }
 
+    /// Returns `true` if a write cycle is in progress (WIP bit set).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Cat25040Error::Spi`] if the SPI transaction fails.
     pub async fn is_busy(&mut self) -> Result<bool, Cat25040Error> {
         let mut status_buf  = [0u8; 1];
         self.get_status_register(&mut status_buf).await?;
@@ -116,6 +126,11 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Ok(status_buf[0] & STATUS_REGISTER_BUSY != 0)
     }
 
+    /// Sends the Write Enable (WREN) command.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Cat25040Error::Spi`] if the SPI transaction fails.
     pub async fn write_enable(&mut self) -> Result<(), Cat25040Error> {
         self.spi.transaction(
             &mut [
@@ -133,7 +148,13 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         }
     }
 
-    pub async fn read(&mut self, address: u16, rx_buf: &mut [u8]) -> Result<(), Cat25040Error> {        
+    /// Reads `rx_buf.len()` bytes starting at `address` into `rx_buf`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Cat25040Error::Spi`] if the SPI transaction fails.
+    #[allow(clippy::cast_possible_truncation)] // A8 bit is encoded in the opcode; only low 8 bits go on the wire.
+    pub async fn read(&mut self, address: u16, rx_buf: &mut [u8]) -> Result<(), Cat25040Error> {
         let opcode = Self::get_valid_opcode_for_address(address, READ_OPCODE);
         self.spi.transaction(
             &mut [
@@ -144,6 +165,12 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Ok(())
     }
 
+    /// Writes a single byte to `address`, skipping the write if the value already matches.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Cat25040Error::Spi`] if any SPI transaction fails.
+    #[allow(clippy::cast_possible_truncation)] // A8 bit is encoded in the opcode; only low 8 bits go on the wire.
     pub async fn write_byte(&mut self, data: u8, address: u16) -> Result<(), Cat25040Error> {
         let mut current_data = [0u8; 1];
         self.read(address, &mut current_data).await?;
@@ -167,9 +194,17 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Ok(())
     }
 
+    /// Writes exactly 16 bytes to a page-aligned `address`.
+    ///
+    /// # Errors
+    ///
+    /// - [`Cat25040Error::InvalidAddress`] if `address` is not page-aligned.
+    /// - [`Cat25040Error::InvalidLength`] if `data.len() != 16`.
+    /// - [`Cat25040Error::Spi`] if any SPI transaction fails.
+    #[allow(clippy::cast_possible_truncation)] // A8 bit is encoded in the opcode; only low 8 bits go on the wire.
     pub async fn write_page(&mut self, data: &[u8], address: u16) -> Result<(), Cat25040Error> {
         // Checking alignment:
-        if address % PAGE_SIZE as u16 != 0 {
+        if !address.is_multiple_of(u16::from(PAGE_SIZE)) {
             return Err(Cat25040Error::InvalidAddress);
         }
         if data.len() != PAGE_SIZE as usize {
@@ -232,9 +267,6 @@ mod tests {
             self.memory[address as usize] = data;
         }
 
-        pub fn get_memory(&self, address: u16) -> u8 {
-            self.memory[address as usize]
-        }
     }
 
     impl ErrorType for MockSpiDevice {
