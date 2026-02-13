@@ -31,7 +31,7 @@
 //! eeprom.write_byte(0xAB, 0x10).await.unwrap();
 //!
 //! // Write a full 16-byte page (address must be page-aligned)
-//! let page = *b"ION-C EEPROM OK!";
+//! let page = *b"EEPROM OK!";
 //! eeprom.write_page(&page, 0x00).await.unwrap();
 //! # }
 //! ```
@@ -44,7 +44,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "defmt")]
-use defmt::{debug, info};
+use defmt::debug;
 
 use core::fmt;
 use core::fmt::Display;
@@ -497,10 +497,10 @@ mod tests {
     fn write_byte_then_read_roundtrip() {
         let mut eeprom = make_eeprom(MockSpiDevice::new());
         let test_data: &[(u16, u8)] = &[
-            (0x00, 0x49),  // 'I'
-            (0x01, 0x4F),  // 'O'
-            (0x02, 0x4E),  // 'N'
-            (0x03, 0x21),  // '!'
+            (0x00, 0xAA),
+            (0x01, 0xBB),
+            (0x02, 0xCC),
+            (0x03, 0xDD),
         ];
         for &(addr, byte) in test_data {
             block_on(eeprom.write_byte(byte, addr)).unwrap();
@@ -529,10 +529,10 @@ mod tests {
     fn write_page_stores_full_page() {
         let mut eeprom = make_eeprom(MockSpiDevice::new());
         let page: [u8; 16] = [
-            0x49, 0x4F, 0x4E, 0x21, // "ION!"
-            0xDE, 0xAD, 0xBE, 0xEF,
-            0xCA, 0xFE, 0xBA, 0xBE,
             0x00, 0x11, 0x22, 0x33,
+            0x44, 0x55, 0x66, 0x77,
+            0x88, 0x99, 0xAA, 0xBB,
+            0xCC, 0xDD, 0xEE, 0xFF,
         ];
         block_on(eeprom.write_page(&page, 0x00)).unwrap();
 

@@ -30,7 +30,7 @@ eeprom.read(0x00, &mut buf).await.unwrap();
 eeprom.write_byte(0xAB, 0x10).await.unwrap();
 
 // Write a full 16-byte page (address must be page-aligned)
-let page = *b"ION-C EEPROM OK!";
+let page = *b"EEPROM OK!";
 eeprom.write_page(&page, 0x00).await.unwrap();
 ```
 
