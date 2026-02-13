@@ -1,18 +1,19 @@
-# This file was automatically generated.
-
 [package]
 edition = "2021"
 name = "cat25040"
 version = "0.1.0"
+description = "A `no_std`, async Rust driver for the **ON Semiconductor CAT25040** (4-Kbit SPI EEPROM), built on [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) traits."
+repository = "https://github.com/cesardtamayo/cat25040-driver"
+license = "Apache-2.0"
+keywords = ["cat25040", "eeprom", "memory", "embedded"]
+categories = ["embedded", "hardware-support", "no-std"]
+readme = "README.md"
 
 [dependencies]
 defmt = { version = "0.3.8", optional = true }
 embedded-hal-async = "1.0.0"
 
-[build-dependencies]
-
 [dev-dependencies]
-embedded-hal-mock = { version = "0.11"}
 futures = "0.3"
 
 [features]

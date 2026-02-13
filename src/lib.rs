@@ -1,8 +1,53 @@
+//! A `no_std`, async Rust driver for the ON Semiconductor CAT25040 4-Kbit SPI EEPROM,
+//! built on [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) traits.
+//!
+//! Works with any platform that implements
+//! [`SpiDevice`](embedded_hal_async::spi::SpiDevice) and
+//! [`DelayNs`](embedded_hal_async::delay::DelayNs) -- no framework lock-in.
+//!
+//! # Features
+//!
+//! - Byte read/write with automatic write-only-if-changed optimization
+//! - Page write (16 bytes per page, single write cycle)
+//! - Sequential read of arbitrary length
+//! - 9-bit addressing -- handles the A8 bit encoding in opcodes automatically
+//! - Busy polling after writes
+//! - Optional [`defmt`](https://crates.io/crates/defmt) logging via the `defmt` feature
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! # async fn example(spi_device: impl embedded_hal_async::spi::SpiDevice,
+//! #                  delay: impl embedded_hal_async::delay::DelayNs) {
+//! use cat25040::Cat25040;
+//!
+//! let mut eeprom = Cat25040::new(spi_device, delay);
+//!
+//! // Read 16 bytes starting at address 0x00
+//! let mut buf = [0u8; 16];
+//! eeprom.read(0x00, &mut buf).await.unwrap();
+//!
+//! // Write a single byte (skips if value already matches)
+//! eeprom.write_byte(0xAB, 0x10).await.unwrap();
+//!
+//! // Write a full 16-byte page (address must be page-aligned)
+//! let page = *b"ION-C EEPROM OK!";
+//! eeprom.write_page(&page, 0x00).await.unwrap();
+//! # }
+//! ```
+//!
+//! # Device Compatibility
+//!
+//! Designed for the CAT25040 but should work with other CAT250xx family EEPROMs
+//! that use the same SPI command set and 9-bit addressing (e.g., CAT25020).
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "defmt")]
 use defmt::{debug, info};
 
+use core::fmt;
+use core::fmt::Display;
 use embedded_hal_async::spi::SpiDevice;
 use embedded_hal_async::spi::Operation;
 use embedded_hal_async::delay::DelayNs;
@@ -29,13 +74,17 @@ pub struct Cat25040<SPI: SpiDevice, D: DelayNs> {
     delay: D,
 }
 
-// TODO: Improve error handling
 #[derive(Debug)]
 pub enum Cat25040Error {
     Spi,
-    WriteProtected,
     InvalidAddress,
     InvalidLength,
+}
+
+impl Display for Cat25040Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Cat25040Error: {:?}", self)
+    }
 }
 
 impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
@@ -66,7 +115,7 @@ impl<SPI: SpiDevice, D: DelayNs> Cat25040<SPI, D> {
         Ok(())
     }
 
-    pub fn get_valid_opcode_for_address(address: u16, opcode: u8) -> u8 {
+    fn get_valid_opcode_for_address(address: u16, opcode: u8) -> u8 {
         // In CAT25020, if A8 is set, bit 3 of the opcode is set
         if address & (1 << 8) != 0 {
             opcode | (1 << 3)
