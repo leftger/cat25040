@@ -9,10 +9,27 @@ keywords = ["cat25040", "eeprom", "memory", "embedded"]
 categories = ["embedded", "hardware-support", "no-std"]
 readme = "README.md"
 authors = ["Cesar Tamayo <cesardtamayo@gmail.com>"]
+include = [
+    "src/**/*.rs",
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE*",
+    "src/cat25040.yaml",
+]
 
 [dependencies]
 defmt = { version = "0.3.8", optional = true }
-embedded-hal-async = "1.0.0"
+device-driver = { version = "1.0.3", default-features = false, features = ["yaml"] }
+embedded-hal-async = "1.0"
+
+# Note: embedded-hal-async is always included because Operation type is part of our core Spi trait
+
+[build-dependencies]
+device-driver-generation = "1.0.7"
+prettyplease = "0.2.37"
+proc-macro2 = "1.0.103"
+syn = { version = "2.0.111", features = ["full"] }
 
 [dev-dependencies]
 futures = "0.3"
