@@ -1,0 +1,82 @@
+# CAT25040 register definitions (device-driver format).
+# SPI protocol: commands and registers use opcode-based addressing.
+
+config:
+  default_byte_order: BE
+  buffer_address_type: u32
+  command_address_type: u8
+  register_address_type: u8
+
+# Commands (opcode-only, no data)
+WREN:
+  type: command
+  description: Write Enable command (opcode 0x06)
+  address: 0x06
+
+WRDI:
+  type: command
+  description: Write Disable command (opcode 0x04)
+  address: 0x04
+
+# Status register: read via opcode 0x05, write via opcode 0x01
+STATUS_REG:
+  type: register
+  description: Status register (Read Status opcode 0x05)
+  address: 0x05
+  size_bits: 8
+  access: RO
+  fields:
+    BUSY:
+      base: bool
+      start: 0
+      access: RO
+      description: |
+        Write in progress (WIP).
+        0 = no write cycle in progress
+        1 = write cycle in progress
+    WEL:
+      base: bool
+      start: 1
+      access: RO
+      description: |
+        Write Enable Latch.
+        0 = not write enabled
+        1 = write enabled (set by WREN command)
+    BP0:
+      base: bool
+      start: 2
+      access: RW
+      description: |
+        Block Protect Bit 0.
+        Used with BP1 to define protected memory area.
+    BP1:
+      base: bool
+      start: 3
+      access: RW
+      description: |
+        Block Protect Bit 1.
+        Used with BP0 to define protected memory area.
+
+# Write Status Register command (opcode 0x01)
+# Note: BUSY and WEL are read-only; only BP0 and BP1 can be written
+WRITE_STATUS_REG:
+  type: register
+  description: Write Status Register (opcode 0x01) - only BP0 and BP1 bits are writable
+  address: 0x01
+  size_bits: 8
+  access: WO
+  fields:
+    BP0:
+      base: bool
+      start: 2
+      access: WO
+      description: |
+        Block Protect Bit 0.
+        Used with BP1 to define protected memory area.
+    BP1:
+      base: bool
+      start: 3
+      access: WO
+      description: |
+        Block Protect Bit 1.
+        Used with BP0 to define protected memory area.
