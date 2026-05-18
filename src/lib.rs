@@ -154,6 +154,7 @@ impl Display for Cat25040Error {
 ///
 /// These configure which portions of the EEPROM are write-protected via the BP0 and BP1 bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum BlockProtection {
     /// No protection - all memory is writable (BP1=0, BP0=0)
     None,
